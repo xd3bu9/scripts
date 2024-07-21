@@ -13,10 +13,10 @@ def get_args():
 def get_info(path):
 	with open(path, 'rb') as f:
 		pdfFile = PdfReader(f)
-		info = pdfFile.metadata
+		pdfMetadata = pdfFile.metadata
 		number_of_pages = len(pdfFile.pages)
 		print("--------METADATA--------")
-		print(info)
+		print(pdfMetadata)
 		print("------------------------")
 		get_text(pdfFile)
 
