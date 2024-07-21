@@ -1,3 +1,3 @@
 # Scripts
 ---
-Quick and dirty scripts to get things done!!
+Useful code to accomplish simple tasks.
