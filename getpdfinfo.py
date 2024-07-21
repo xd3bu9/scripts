@@ -1,6 +1,6 @@
-# script to extract metadata and text from all pages in a pdf document
-# pip install PyPDF2 before runnig this script
-# usage: python getpdfinfo.py /home/user/Downloads/file.pdf
+# A python script that can extract metadata of a pdf and text from all the pages of a pdf
+# Pre-requisite: pip install PyPDF2
+# usage: python getpdfinfo.py /path/to/file.pdf
 
 from PyPDF2 import PdfReader
 from argparse import ArgumentParser
