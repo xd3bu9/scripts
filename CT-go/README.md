@@ -1,5 +1,5 @@
 #### CT-go
-Get domain alt names from Certificate transparency logs on the certspotter api.
+Get subdomains from certificate transparency logs on the certspotter api.
 
 #### Usage
 ```
