@@ -31,32 +31,29 @@ type Result []struct {
 	Revoked   bool      `json:"revoked"`
 }
 
-var apiUrl string
-var iter = 0
-var lastId string
-
-// helpers for storage of unique values only
-var resultMap = make(map[string]bool)
-var resultSlice = []string{}
+var (
+	apiUrl string
+	iter   = 0
+	lastId string
+	// helpers for storage of unique values only
+	resultMap   = make(map[string]bool)
+	resultSlice = []string{}
+)
 
 func add(item string) {
-	if resultMap[item] {
-		// Already in the map
-		return
+	if !resultMap[item] {
+		resultSlice = append(resultSlice, item)
+		resultMap[item] = true
 	}
-	// Add unique value
-	resultSlice = append(resultSlice, item)
-	resultMap[item] = true
 }
 
 func store(resp Result) {
 	// The id field of the last issuance is passed to the endpoint in an additional param
 	// named "after" with other values remaining the same to work around result pagination
 	lastId = resp[len(resp)-1].Id
-	after := fmt.Sprintf("&after=%s", lastId)
 
 	if iter != 0 {
-		apiUrl += after
+		apiUrl += fmt.Sprintf("&after=%s", lastId)
 	}
 	// store unique dns_name output
 	for i := 0; i < len(resp); i++ {
