@@ -1,9 +1,5 @@
 package main
 
-/*//////////////////////////////////////////////////////////////
-                    CERTSPOTTER API LOOKUP
-//////////////////////////////////////////////////////////////*/
-
 import (
 	"encoding/json"
 	"flag"
@@ -11,10 +7,12 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 )
 
-type Result []struct {
+type certspotterResult struct {
 	Id           string   `json:"id"`
 	TbsSha256    string   `json:"tbs_sha256"`
 	CertSha256   string   `json:"cert_sha256"`
@@ -31,14 +29,43 @@ type Result []struct {
 	Revoked   bool      `json:"revoked"`
 }
 
-var (
-	apiUrl string
-	iter   = 0
-	lastId string
-	// helpers for storage of unique values only
-	resultMap   = make(map[string]bool)
-	resultSlice = []string{}
-)
+type crtshResult struct {
+	IssuerCAID     int    `json:"issuer_ca_id"`
+	IssuerName     string `json:"issuer_name"`
+	CommonName     string `json:"common_name"`
+	NameValue      string `json:"name_value"`
+	ID             int    `json:"id"`
+	EntryTimestamp string `json:"entry_timestamp"`
+	NotBefore      string `json:"not_before"`
+	NotAfter       string `json:"not_after"`
+	SerialNumber   string `json:"serial_number"`
+	ResultCount    int    `json:"result_count"`
+}
+
+var resultMap = make(map[string]bool)
+var resultSlice []string
+
+func fetch(link string, headers map[string]string) ([]byte, error) {
+	req, err := http.NewRequest("GET", link, nil)
+	if err != nil {
+		return nil, fmt.Errorf("REQUEST_CREATION_ERROR: %w", err)
+	}
+	// Add headers
+	for key, value := range headers {
+		req.Header.Add(key, value)
+	}
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("REQUEST_ERROR: %w", err)
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("READALL_ERROR: %w", err)
+	}
+	return body, nil
+}
 
 func add(item string) {
 	if !resultMap[item] {
@@ -47,63 +74,77 @@ func add(item string) {
 	}
 }
 
-func store(resp Result) {
-	// The id field of the last issuance is passed to the endpoint in an additional param
-	// named "after" with other values remaining the same to work around result pagination
-	lastId = resp[len(resp)-1].Id
-
-	if iter != 0 {
-		apiUrl += fmt.Sprintf("&after=%s", lastId)
+func recursiveCertspotter(link string) {
+	var iter int
+	headers := map[string]string{
+		"Authorization": fmt.Sprintf("Bearer %s", os.Getenv("CERTSPOTTER")),
 	}
-	// store unique dns_name output
-	for i := 0; i < len(resp); i++ {
-		for j := 0; j < len(resp[i].DNSNames); j++ {
-			add(resp[i].DNSNames[j])
+	for {
+		body, err := fetch(link, headers)
+		if err != nil {
+			log.Fatal(err)
 		}
+		var response []certspotterResult
+		if err := json.Unmarshal(body, &response); err != nil {
+			log.Fatal("ERROR DECODING JSON: ", err)
+		}
+		if len(response) == 0 {
+			break
+		}
+		for _, item := range response {
+			for _, dnsName := range item.DNSNames {
+				add(dnsName)
+				fmt.Println(dnsName)
+			}
+		}
+		lastId := response[len(response)-1].Id
+		link = fmt.Sprintf("%s&after=%s", link, lastId)
+		iter++
 	}
+	iter = 0
 }
 
 func main() {
-	// parse commandline arguments
 	domain := flag.String("d", "example.com", "A domain to perform a cert transparency lookup on.")
 	flag.Parse()
+	certspotterUrl := fmt.Sprintf("https://api.certspotter.com/v1/issuances?domain=%s&expand=dns_names&expand=issuer&expand=issuer.caa_domains", *domain)
+	crtshUrl := fmt.Sprintf("https://crt.sh/?q=%s&output=json", *domain)
 
-	apiUrl = fmt.Sprintf("https://api.certspotter.com/v1/issuances?domain=%s&expand=dns_names&expand=issuer&expand=issuer.caa_domains", *domain)
+	recursiveCertspotter(certspotterUrl)
+	crtsh(crtshUrl)
 
-	for {
-		var body []byte
-		func() {
-			// send http get request to url
-			res, err := http.Get(apiUrl)
+	for _, v := range resultSlice {
+		fmt.Println(v)
+	}
+}
 
-			if err != nil {
-				log.Fatal("REQUEST_ERROR: ", err)
+func crtsh(link string) ([]crtshResult, error) {
+	res, err := http.Get(link)
+	if err != nil {
+		return nil, err
+	}
+	body, err := io.ReadAll(res.Body)
+	var items []crtshResult
+	// Unmarshal JSON data into the slice
+	if err := json.Unmarshal(body, &items); err != nil {
+		log.Fatalf("ERROR_UNMARSHALING_JSON: %v", err)
+	}
+	processCrtshResults(items, err)
+	return items, nil
+}
+
+func processCrtshResults(results []crtshResult, err error) {
+	if err != nil {
+		log.Fatal("Error Fetching results: ", err)
+	}
+	for _, result := range results {
+		if strings.Contains(result.NameValue, "\n") {
+			names := strings.Split(result.NameValue, "\n")
+			for _, name := range names {
+				if !strings.Contains(name, "@") {
+					add(name)
+				}
 			}
-			defer res.Body.Close()
-
-			body, err = io.ReadAll(res.Body)
-			if err != nil {
-				log.Fatal("READALL_ERROR:", err)
-			}
-		}()
-
-		// unmarshall JSON
-		var response Result
-		if err := json.Unmarshal(body, &response); err != nil {
-			log.Fatal("UNMARSHALL_ERROR", err)
-		}
-		// fmt.Println("RESPONSE LENGTH", len(response))
-		// The api returns an empty array when no more results are present.
-		// Empty response check enables the break-out from the infinite loop
-		if len(response) < 1 {
-			break
-		}
-		iter += 1
-		store(response)
-		// print output
-		for _, v := range resultSlice {
-			fmt.Println(v)
 		}
 	}
-
 }
