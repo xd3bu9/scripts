@@ -37,7 +37,7 @@ folder_setup() {
 }
 
 DOMAIN=$1
-OUTDIR=$2
+OUTDIR="$2/$DOMAIN"
 ORG="$(echo $DOMAIN | awk -F"." '{ print $(NF-1) }')"
 chaos="$(echo $CHAOS_KEY)"
 
