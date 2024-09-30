@@ -3,7 +3,7 @@
 get_subdomains() {
     # rapiddns
     curl -s "https://rapiddns.io/subdomain/$1\?full\=1\#result" 2>/dev/null >"$2/subs/rapiddns.html"
-    find "$2" -type f -name rapiddns.html 2>/dev/null | html-tool tags td | sort -u | grep "$1" | tee "$2/subs/zRapiddns"
+    find "$2" -type f -name rapiddns.html 2>/dev/null | html-tool tags td | sort -u | grep "$1" > "$2/subs/zRapiddns"
     # anubisdb
     curl -s "https://jldc.me/anubis/subdomains/$1" 2>/dev/null | grep -Po "((http|https):\/\/)?(([\w.-]*)\.([\w]*)\.([A-z]))\w+" 2>/dev/null | sort -u 2>/dev/null >"$2/subs/zAnubis"
     # subfinder
