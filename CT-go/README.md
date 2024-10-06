@@ -1,5 +1,5 @@
 #### CT-go
-Get subdomains from certificate transparency logs on the certspotter api.
+Get subdomains from certificate transparency logs on the certspotter api and crt.sh.
 
 #### Usage
 ```
