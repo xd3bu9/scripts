@@ -17,7 +17,7 @@ get_subdomains() {
     # chaos
     chaos-client -d "$1" -k $chaos -silent >"$2/subs/zChaos"
     
-    cat "$2/subs/z*"|sort -u > "$2/subs/all"
+    cat "$2/subs/z*"|uniq -u > "$2/subs/all"
 }
 
 get_ips() {

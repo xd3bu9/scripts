@@ -11,8 +11,8 @@ from argparse import ArgumentParser
 
 def get_args():
 	parser = ArgumentParser()
-	parser.add_argument('-i', help='/path/to/input/pdf/file')
-	parser.add_argument('-m', help='mode. dump,merge,protect')
+	parser.add_argument('-i', metavar="INPUT", help='/path/to/input/pdf/file')
+	parser.add_argument('-m', metavar="MODE", help='modes. dump,merge,protect')
 	return parser.parse_args()
 
 def dump(file_path):
@@ -59,11 +59,11 @@ if __name__ == '__main__':
 	args = get_args()
 	path = args.i
 	mode = args.m
-	if (mode == "dump" & path != None):
+	if (mode == "dump" and path != None):
 		dump(path)
-	elif (mode == "protect" & path != None):
+	elif (mode == "protect" and path != None):
 		protect(path)
 	elif (mode == "merge"):
 		merge()
 	else:
-		print("Invalid options.")
+		print("Invalid options. Try -h")
