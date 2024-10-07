@@ -7,8 +7,8 @@ from argparse import ArgumentParser
 
 def get_args():
     parser = ArgumentParser()
-    parser.add_argument("-i", help="/path/to/file.m4a", default=None)
-    parser.add_argument("-b", help="bulk convert", default=None, action="store_true")
+    parser.add_argument("-i", metavar="INPUT", help="/path/to/file.m4a", default=None)
+    parser.add_argument("-b", metavar="BULK", help="bulk convert", default=None, action="store_true")
     return parser.parse_args()
 
 
