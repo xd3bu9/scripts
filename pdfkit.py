@@ -4,7 +4,7 @@
 # password protect a pdf file
 
 # required: pip install PyPDF2
-# usage: python pdfkit.py /path/to/file.pdf
+# usage: python pdfkit.py -m dump -i /path/to/file.pdf
 import json
 from PyPDF2 import PdfReader
 from argparse import ArgumentParser
