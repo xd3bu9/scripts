@@ -8,10 +8,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
 
+// json results struct for certspotter
 type certspotterResult struct {
 	Id           string   `json:"id"`
 	TbsSha256    string   `json:"tbs_sha256"`
@@ -29,6 +31,7 @@ type certspotterResult struct {
 	Revoked   bool      `json:"revoked"`
 }
 
+// json results struct for crt.sh
 type crtshResult struct {
 	IssuerCAID     int    `json:"issuer_ca_id"`
 	IssuerName     string `json:"issuer_name"`
@@ -42,15 +45,17 @@ type crtshResult struct {
 	ResultCount    int    `json:"result_count"`
 }
 
+// Helpers for storing of unique domains only
 var resultMap = make(map[string]bool)
 var resultSlice []string
 
+// Function to make a http request and return the body of the response
 func fetch(link string, headers map[string]string) ([]byte, error) {
 	req, err := http.NewRequest("GET", link, nil)
 	if err != nil {
 		return nil, fmt.Errorf("REQUEST_CREATION_ERROR: %w", err)
 	}
-	// Add headers
+	// Attach headers to the request
 	for key, value := range headers {
 		req.Header.Add(key, value)
 	}
@@ -67,18 +72,30 @@ func fetch(link string, headers map[string]string) ([]byte, error) {
 	return body, nil
 }
 
+// Function to add unique values to the list of results
 func add(item string) {
-	if !resultMap[item] {
-		resultSlice = append(resultSlice, item)
-		resultMap[item] = true
+	// regex to match domains
+	valid_domain := regexp.MustCompile(`\b(?:https?://)?(?:[a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z]{2,5}\b`)
+	formatted := valid_domain.FindAllString(item, -1)
+	for i := 0; i < len(formatted); i++ {
+		if !resultMap[formatted[i]] {
+			resultSlice = append(resultSlice, formatted[i])
+			resultMap[formatted[i]] = true
+		}
 	}
+
 }
 
+// Function to recursively fetch results from the certspotter api
+// Get an api token from certspotter and set it as the environment variable "CERTSPOTTER"
 func recursiveCertspotter(link string) {
+	// Variable to keep track of number of iterations when fetching results
 	var iter int
+	// setup api auth header
 	headers := map[string]string{
 		"Authorization": fmt.Sprintf("Bearer %s", os.Getenv("CERTSPOTTER")),
 	}
+	// Infinite loop to iterate over every page of results from the api
 	for {
 		body, err := fetch(link, headers)
 		if err != nil {
@@ -97,27 +114,34 @@ func recursiveCertspotter(link string) {
 				fmt.Println(dnsName)
 			}
 		}
+		// use the id of the last result on the current page as a parameter
+		// for the next request
 		lastId := response[len(response)-1].Id
 		link = fmt.Sprintf("%s&after=%s", link, lastId)
 		iter++
 	}
+	// reset iteration count
 	iter = 0
 }
 
 func main() {
+	// TODO: Add support for input list file of domains
+	// get domain from -d parameter
 	domain := flag.String("d", "example.com", "A domain to perform a cert transparency lookup on.")
 	flag.Parse()
+	// Sources
 	certspotterUrl := fmt.Sprintf("https://api.certspotter.com/v1/issuances?domain=%s&expand=dns_names&expand=issuer&expand=issuer.caa_domains", *domain)
 	crtshUrl := fmt.Sprintf("https://crt.sh/?q=%s&output=json", *domain)
-
+	// Fetch results
 	recursiveCertspotter(certspotterUrl)
 	crtsh(crtshUrl)
-
+	// print all results
 	for _, v := range resultSlice {
 		fmt.Println(v)
 	}
 }
 
+// Function to fetch results from crt.sh
 func crtsh(link string) ([]crtshResult, error) {
 	res, err := http.Get(link)
 	if err != nil {
@@ -133,6 +157,7 @@ func crtsh(link string) ([]crtshResult, error) {
 	return items, nil
 }
 
+// Function to extract domains from crt.sh results
 func processCrtshResults(results []crtshResult, err error) {
 	if err != nil {
 		log.Fatal("Error Fetching results: ", err)
