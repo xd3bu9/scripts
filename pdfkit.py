@@ -5,8 +5,9 @@
 
 # required: pip install PyPDF2
 # usage: python pdfkit.py -m dump -i /path/to/file.pdf
+import os
 import json
-from PyPDF2 import PdfReader
+import PyPDF2
 from argparse import ArgumentParser
 
 def get_args():
@@ -20,7 +21,7 @@ def dump(file_path):
 	pageCount = 0
 	metadata = ""
 	with open(file_path, 'rb') as f:
-		pdf = PdfReader(f)
+		pdf = PyPDF2.PdfReader(f)
 		metadata = pdf.metadata
 		pageCount = len(pdf.pages)
 		for page in pdf.pages:
@@ -31,7 +32,7 @@ def dump(file_path):
 
 def protect(filename):
     out = PyPDF2.PdfWriter()
-    open_file = PdfReader(open(filename, "rb"))   
+    open_file = PyPDF2.PdfReader(open(filename, "rb"))   
     for i in range(0, len(open_file.pages)):
         out.add_page(open_file.pages[i])
     newfile = open(filename+"_secured.pdf", "wb")
